@@ -1,0 +1,87 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger:
+- master
+
+pool:
+  vmImage: ubuntu-latest
+
+
+stages:
+  - stage: Build
+    jobs:
+      - job: Build
+        pool:
+          vmImage: ubuntu-latest
+        variables:
+          - group: Terraform
+        steps:
+          - checkout: self
+            displayName: 'Checkout Repo'
+
+          - task: DownloadSecureFile@1
+            name: downloadServiceAccountKey
+            displayName: 'Download Service Account Key'
+            inputs:
+              secureFile: 'key.json'
+
+          - script: |
+              echo "Setting env variable GOOGLE_APPLICATION_CREDENTIALS"
+              echo "##vso[task.setvariable variable=GOOGLE_APPLICATION_CREDENTIALS]$(downloadServiceAccountKey.secureFilePath)"
+            displayName: 'Setting GOOGLE_APPLICATION_CREDENTIALS env variable'
+
+          - script: |
+              export PATH="$HOME/.tfenv/bin:$PATH"
+              bash bin/tfenv.sh
+            displayName: 'Tfenv install'
+
+          - script: |
+              export PATH="$HOME/.tfenv/bin:$PATH"
+              bash bin/lint.sh
+            displayName: 'Terraform Lint'
+
+          - script: |
+              export PATH="$HOME/.tfenv/bin:$PATH"
+              export TF_VAR_project_id=$(project_id)
+              bash bin/plan.sh
+            displayName: 'Terraform Plan'
+  - stage: Deploy
+    jobs:
+      - deployment: DeployDev
+        displayName: 'Dev Environment Deployment'
+        pool:
+          vmImage: 'ubuntu-latest'
+        variables:
+          - group: Terraform
+        environment: 'dev'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+                  displayName: 'Checkout Repo'
+
+                - task: DownloadSecureFile@1
+                  name: downloadServiceAccountKey
+                  displayName: 'Download Service Account Key'
+                  inputs:
+                    secureFile: 'key.json'
+
+                - script: |
+                    echo "Setting env variable GOOGLE_APPLICATION_CREDENTIALS"
+                    echo "##vso[task.setvariable variable=GOOGLE_APPLICATION_CREDENTIALS]$(downloadServiceAccountKey.secureFilePath)"
+                  displayName: 'Setting GOOGLE_APPLICATION_CREDENTIALS env variable'
+
+                - script: |
+                    export PATH="$HOME/.tfenv/bin:$PATH"
+                    bash bin/tfenv.sh
+                  displayName: 'Tfenv install'
+
+                - script: |
+                    export PATH="$HOME/.tfenv/bin:$PATH"
+                    export TF_VAR_project_id=$(project_id)
+                    bash bin/apply.sh
+                  displayName: 'Terraform Apply'
