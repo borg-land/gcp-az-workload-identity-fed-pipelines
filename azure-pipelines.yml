@@ -8,13 +8,10 @@ trigger:
 
 pool: Google
 
-
 stages:
   - stage: Build
     jobs:
       - job: Build
-        pool:
-          vmImage: ubuntu-latest
         variables:
           - group: Terraform
         steps:
@@ -51,8 +48,6 @@ stages:
     jobs:
       - deployment: DeployDev
         displayName: 'Dev Environment Deployment'
-        pool:
-          vmImage: 'ubuntu-latest'
         variables:
           - group: Terraform
         environment: 'dev'
